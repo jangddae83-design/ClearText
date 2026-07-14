@@ -790,9 +790,13 @@
       ctx.drawImage(previewCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
     }
 
-    targetCanvas.toBlob((blob) => {
+    targetCanvas.toBlob(async (blob) => {
       if (!blob) return;
-      const url = URL.createObjectURL(blob);
+      
+      // 300 DPI 메타데이터 강제 주입
+      const dpiBlob = await setDPI300(blob);
+      
+      const url = URL.createObjectURL(dpiBlob);
       const a = document.createElement('a');
       a.href = url;
       a.download = generateFilename(scale);
@@ -802,6 +806,40 @@
       URL.revokeObjectURL(url);
       showToast('PNG 파일이 다운로드되었습니다 ✓');
     }, 'image/png');
+  }
+
+  // PNG 파일 바이너리에 300 DPI (pHYs) 청크를 삽입하는 함수
+  function setDPI300(blob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const view = new Uint8Array(e.target.result);
+        
+        // PNG 시그니처 체크
+        if (view[0] !== 0x89 || view[1] !== 0x50) {
+          return resolve(blob);
+        }
+
+        // 300 DPI (11811 pixels/meter) pHYs 청크 데이터 및 미리 계산된 CRC
+        const physChunk = new Uint8Array([
+          0x00, 0x00, 0x00, 0x09, // Length (9 bytes)
+          0x70, 0x48, 0x59, 0x73, // Type (pHYs)
+          0x00, 0x00, 0x2E, 0x23, // X-axis (11811)
+          0x00, 0x00, 0x2E, 0x23, // Y-axis (11811)
+          0x01,                   // Unit (1 = meter)
+          0x78, 0xA5, 0x3F, 0x76  // CRC32
+        ]);
+
+        // IHDR 청크 바로 뒤(오프셋 33)에 pHYs 청크 삽입
+        const newBuffer = new Uint8Array(view.length + physChunk.length);
+        newBuffer.set(view.slice(0, 33), 0);
+        newBuffer.set(physChunk, 33);
+        newBuffer.set(view.slice(33), 33 + physChunk.length);
+        
+        resolve(new Blob([newBuffer], { type: 'image/png' }));
+      };
+      reader.readAsArrayBuffer(blob);
+    });
   }
 
   function generateFilename(scale) {
