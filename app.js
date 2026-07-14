@@ -847,7 +847,7 @@
     const pad = (n) => String(n).padStart(2, '0');
     const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
     const suffix = scale > 1 ? `_${scale}x` : '';
-    return `handwriting_${ts}${suffix}.png`;
+    return `ClearText_${ts}${suffix}.png`;
   }
 
   // ═══════════════════════════════════════════
