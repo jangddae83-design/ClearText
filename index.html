@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClearText — 배경 없는 글씨 추출기</title>
+  <meta name="description" content="스캔된 문서에서 손글씨를 추출하여 투명 배경 PNG로 저장하는 웹 앱">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <h1>✨ ClearText</h1>
+      <p class="subtitle">스캔 문서에서 글자만 선명하게 추출 → 투명 배경 PNG 저장</p>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-secondary" id="uploadBtn">
+        <span class="btn-icon">📂</span> 파일 열기
+      </button>
+      <input type="file" id="fileInput" accept="image/*,.pdf" hidden>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="workspace">
+    <!-- Source Panel -->
+    <section class="panel source-panel">
+      <div class="panel-header">
+        <h2>📄 원본 이미지</h2>
+        <div class="pdf-nav" id="pdfNav">
+          <button class="pdf-nav-btn" id="prevPageBtn" title="이전 페이지">◀</button>
+          <span class="pdf-nav-info" id="pageInfo">1 / 1</span>
+          <button class="pdf-nav-btn" id="nextPageBtn" title="다음 페이지">▶</button>
+        </div>
+        <span class="panel-hint" id="sourceHint">드래그로 영역 선택</span>
+      </div>
+      <div class="canvas-wrapper" id="sourceWrapper">
+        <div id="sourceTransformLayer" style="transform-origin: 0 0;">
+          <canvas id="sourceCanvas"></canvas>
+          <div class="selection-box" id="selectionBox"></div>
+        </div>
+        <div class="placeholder" id="uploadPlaceholder">
+          <div class="placeholder-icon">📄</div>
+          <p class="placeholder-title">이미지 또는 PDF를 여기에 놓으세요</p>
+          <p class="placeholder-sub">또는 파일 열기 버튼 클릭 · Ctrl+V로 붙여넣기</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Preview Panel -->
+    <section class="panel preview-panel">
+      <div class="panel-header">
+        <h2>🔍 미리보기</h2>
+        <span class="panel-hint" id="previewHint"></span>
+      </div>
+      <div class="canvas-wrapper checkerboard" id="previewWrapper">
+        <canvas id="previewCanvas"></canvas>
+        <div class="placeholder" id="previewPlaceholder">
+          <div class="placeholder-icon">👆</div>
+          <p class="placeholder-title">영역을 선택하면</p>
+          <p class="placeholder-sub">투명 배경 미리보기가 여기에 표시됩니다</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Controls -->
+  <footer class="controls">
+    <div class="controls-inner">
+      <div class="control-group">
+        <label for="thresholdSlider">
+          <span class="control-label">감도</span>
+          <span class="control-value" id="thresholdValue">73%</span>
+        </label>
+        <input type="range" id="thresholdSlider" min="0" max="100" value="73" step="1">
+        <div class="control-desc">높을수록 더 많은 배경 제거</div>
+      </div>
+
+      <div class="control-group">
+        <label for="softnessSlider">
+          <span class="control-label">부드러움</span>
+          <span class="control-value" id="softnessValue">38%</span>
+        </label>
+        <input type="range" id="softnessSlider" min="0" max="100" value="38" step="1">
+        <div class="control-desc">글자 가장자리 부드럽게</div>
+      </div>
+
+      <div class="control-group">
+        <label for="brightnessSlider">
+          <span class="control-label">밝기</span>
+          <span class="control-value" id="brightnessValue">0</span>
+        </label>
+        <input type="range" id="brightnessSlider" min="-100" max="100" value="0" step="1">
+        <div class="control-desc">글자 밝기 조절</div>
+      </div>
+
+      <div class="control-group">
+        <label for="contrastSlider">
+          <span class="control-label">명암</span>
+          <span class="control-value" id="contrastValue">0</span>
+        </label>
+        <input type="range" id="contrastSlider" min="-100" max="100" value="0" step="1">
+        <div class="control-desc">글자 선명도 조절</div>
+      </div>
+
+      <div class="control-group control-actions">
+        <select id="exportScale" class="export-scale-select" title="저장 해상도 배율">
+          <option value="1">1x (원본 크기)</option>
+          <option value="2">2x (2배 확대)</option>
+          <option value="3">3x (3배 확대)</option>
+          <option value="4">4x (4배 확대)</option>
+        </select>
+        <button class="btn btn-ghost" id="resetSlidersBtn" title="슬라이더 초기화">
+          <span class="btn-icon">↺</span> 초기화
+        </button>
+        <button class="btn btn-primary" id="downloadBtn" disabled>
+          <span class="btn-icon">💾</span> PNG 다운로드
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Drag & Drop Overlay -->
+  <div class="drop-overlay" id="dropOverlay">
+    <div class="drop-message">
+      <div class="drop-icon">📥</div>
+      <p>이미지를 놓으세요</p>
+    </div>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
